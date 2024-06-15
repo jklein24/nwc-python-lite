@@ -49,8 +49,7 @@ async def send_nwc_message(
         recipient_pubkey=wallet_pubkey,
         cleartext_content=json.dumps({"method": method, "params": params}),
     )
-    private_key.encrypt_dm(event)
-    private_key.sign_event(event)
+    event.sign_event(private_key)
     await websocket.send(event.to_message())
     await websocket.send(
         json.dumps(

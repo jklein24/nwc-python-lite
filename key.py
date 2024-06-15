@@ -5,8 +5,6 @@ from cffi import FFI
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 
-from event import EncryptedDirectMessage, Event, is_encrypted_event_kind
-
 
 class PublicKey:
     def __init__(self, raw_bytes: bytes=None) -> None:
@@ -48,9 +46,6 @@ class PrivateKey:
         encrypted_message = encryptor.update(padded_data) + encryptor.finalize()
 
         return f"{base64.b64encode(encrypted_message).decode()}?iv={base64.b64encode(iv).decode()}"
-    
-    def encrypt_dm(self, dm: EncryptedDirectMessage) -> None:
-        dm.content = self.encrypt_message(message=dm.cleartext_content, public_key_hex=dm.recipient_pubkey)
 
     def decrypt_message(self, encoded_message: str, public_key_hex: str) -> str:
         encoded_data = encoded_message.split('?iv=')
@@ -72,13 +67,6 @@ class PrivateKey:
         sk = secp256k1.PrivateKey(self.raw_secret)
         sig = sk.schnorr_sign(hash, None, raw=True)
         return sig.hex()
-
-    def sign_event(self, event: Event) -> None:
-        if is_encrypted_event_kind(event.kind) and event.content is None:
-            self.encrypt_dm(event)
-        if event.public_key is None:
-            event.public_key = self.public_key.hex()
-        event.signature = self.sign_message_hash(bytes.fromhex(event.id))
 
     def __eq__(self, other):
         return self.raw_secret == other.raw_secret

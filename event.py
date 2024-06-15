@@ -6,6 +6,8 @@ from typing import List
 
 from secp256k1 import PublicKey
 
+from key import PrivateKey
+
 
 @dataclass
 class Event:
@@ -39,7 +41,7 @@ class Event:
         return sha256(
             Event.serialize(public_key, created_at, kind, tags, content)
         ).hexdigest()
-    
+
     @staticmethod
     def from_message(message: List):
         if message[0] == "EVENT":
@@ -94,9 +96,10 @@ class Event:
             ]
         )
 
-
-def is_encrypted_event_kind(kind: int) -> bool:
-    return kind in [4, 23194, 23195]
+    def sign_event(self, key: PrivateKey) -> None:
+        if self.public_key is None:
+            self.public_key = key.public_key.hex()
+        self.signature = key.sign_message_hash(bytes.fromhex(self.id))
 
 
 @dataclass
@@ -122,6 +125,15 @@ class EncryptedDirectMessage(Event):
         # Optionally specify a reference event (DM) this is a reply to
         if self.reference_event_id is not None:
             self.add_event_ref(self.reference_event_id)
+
+    def sign_event(self, key: PrivateKey) -> None:
+        # Encrypt contents before signing:
+        if self.content is None:
+            self.content = key.encrypt_message(
+                message=self.cleartext_content, public_key_hex=self.recipient_pubkey
+            )
+
+        super().sign_event(key)
 
     @property
     def id(self) -> str:
